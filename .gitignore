@@ -1,0 +1,64 @@
+# Environment and secrets
+.env
+.env.*
+!.env.example
+!.env.sample
+
+# Python virtual environments and tooling
+.venv/
+venv/
+env/
+ENV/
+rag_backend/ragenv/
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+*.so
+
+# Python packaging and test output
+.eggs/
+*.egg
+*.egg-info/
+dist/
+build/
+pip-wheel-metadata/
+*.whl
+.pytest_cache/
+.mypy_cache/
+.pyright/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Frontend dependencies and generated output
+node_modules/
+.npm/
+.yarn/
+.pnpm-store/
+.parcel-cache/
+.next/
+.nuxt/
+.svelte-kit/
+.vite/
+coverage/
+
+# Local application data and runtime output
+data/
+uploads/
+logs/
+*.log
+*.db
+*.sqlite
+*.sqlite3
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
