@@ -1,6 +1,7 @@
 import time
 from pinecone import Pinecone, ServerlessSpec
 from langchain_openai import OpenAIEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_pinecone import PineconeVectorStore
 
 from app.core.config import get_settings
@@ -22,17 +23,22 @@ EMBEDDING_DIMENSIONS = {
 
 
 def get_embedding_dimensions(model_name: str | None = None) -> int:
-    name = (model_name or settings.embedding_model).strip()
+    name = (model_name or settings.huggingface_embedding_model).strip()
 
     if not name:
         raise RuntimeError(
-            "Embedding model name is not set. Please set the 'embedding_model' in the configuration."
+            "Embedding model name is not set. Please set the Hugging Face embedding model in the configuration."
         )
 
     normalized_name = name.lower()
 
-    if normalized_name in EMBEDDING_DIMENSIONS:
-        return EMBEDDING_DIMENSIONS[normalized_name]
+    normalized_dimensions = {
+        model.lower(): dimensions
+        for model, dimensions in EMBEDDING_DIMENSIONS.items()
+    }
+
+    if normalized_name in normalized_dimensions:
+        return normalized_dimensions[normalized_name]
     if "text-embedding-3-small" in normalized_name:
         return 1536
     if "text-embedding-3-large" in normalized_name:
@@ -45,13 +51,13 @@ def get_embedding_dimensions(model_name: str | None = None) -> int:
         return 4096
     if "text-embedding-davinci-001" in normalized_name:
         return 12288
-    if "all-MiniLM-L6-v2" in normalized_name:
+    if "all-minilm-l6-v2" in normalized_name:
         return 384
 
     raise ValueError(f"Unsupported embedding model: {name}")
 
 
-def get_embeddings() -> OpenAIEmbeddings:
+def get_openai_embeddings() -> OpenAIEmbeddings:
     global _embeddings
     if _embeddings is None:
         if not settings.openai_api_key:
@@ -60,8 +66,19 @@ def get_embeddings() -> OpenAIEmbeddings:
             )
 
         _embeddings = OpenAIEmbeddings(
-            model=settings.embedding_model,
+            model=settings.openai_embedding_model,
             openai_api_key=settings.openai_api_key,
+        )
+    return _embeddings
+
+
+def get_huggingface_embeddings() -> HuggingFaceEmbeddings:
+    global _embeddings
+    if _embeddings is None:
+        _embeddings = HuggingFaceEmbeddings(
+            model_name=settings.huggingface_embedding_model,
+            model_kwargs={"device": "cpu"},
+            encode_kwargs={"normalize_embeddings": True},
         )
     return _embeddings
 
@@ -75,7 +92,7 @@ def ensure_pinecone_index_exists():
             "Pinecone API key is not set. Please set the 'pinecone_api_key' in the configuration."
         )
 
-    desired_dimensions = get_embedding_dimensions(settings.embedding_model)
+    desired_dimensions = get_embedding_dimensions(settings.huggingface_embedding_model)
     pc_client = Pinecone(api_key=settings.pinecone_api_key)
     namespaces = [x.name for x in pc_client.list_indexes()]
 
@@ -97,10 +114,32 @@ def ensure_pinecone_index_exists():
             name=settings.pinecone_index_name,
             dimension=desired_dimensions,
             metric="cosine",
-            serverless=ServerlessSpec(cloud="aws", region="us-east-1"),
+            spec=ServerlessSpec(cloud="aws", region="us-east-1"),
         )
 
         while not pc_client.describe_index(settings.pinecone_index_name).status.ready:
             time.sleep(1)
 
     return pc_client.Index(settings.pinecone_index_name)
+
+
+def get_vector_store():
+    global _vector_store
+    if _vector_store is None:
+        index = ensure_pinecone_index_exists()
+        embeddings = get_huggingface_embeddings()
+        _vector_store = PineconeVectorStore(
+            index=index,
+            embedding=embeddings,
+            namespace=settings.pinecone_namespace,
+        )
+    return _vector_store
+
+
+def get_retriever():
+    return get_vector_store().as_retriever(search_kwargs={"k": settings.top_k})
+
+
+def add_documents_to_vector_store(documents):
+    vector_store = get_vector_store()
+    vector_store.add_documents(documents)

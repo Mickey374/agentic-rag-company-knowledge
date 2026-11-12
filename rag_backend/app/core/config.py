@@ -22,7 +22,10 @@ class Settings(BaseSettings):
     pinecone_api_key: str = Field(..., env="PINECONE_API_KEY")
     pinecone_index_name: str = Field(..., env="PINECONE_INDEX_NAME")
     pinecone_namespace: str = Field(..., env="PINECONE_NAMESPACE")
-    embedding_model: str = Field(..., env="EMBEDDING_MODEL")
+    openai_embedding_model: str = Field(..., validation_alias="OPENAI_EMBEDDING_MODEL")
+    huggingface_embedding_model: str = Field(
+        ..., validation_alias="HUGGINGFACE_EMBEDDING_MODEL"
+    )
     groq_model: str = Field(..., env="GROQ_MODEL")
     top_k: int = Field(5, env="TOP_K")
     max_retries: int = Field(3, env="MAX_RETRIES")
@@ -30,7 +33,8 @@ class Settings(BaseSettings):
 
     audit_db_path: str = str(BASE_DIR / "data" / "audit_logs.db")
     upload_dir: str = str(BASE_DIR / "data" / "uploads")
-    sample_kb_dir: str = str(BASE_DIR / "data" / "sample_kb")
+    sample_kb_dir: str = str(BASE_DIR / "data")
+    hf_token: str = Field(..., env="HF_TOKEN")
 
     model_config = SettingsConfigDict(
         env_file=str(BASE_DIR / ".env"),
